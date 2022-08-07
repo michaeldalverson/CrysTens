@@ -2,7 +2,7 @@ from typing import List
 import os
 import numpy as np
 import math
-from pymatgen import CifParser
+from pymatgen.io.cif import CifParser
 
 class CrysGraph:
   def __init__(self, *args):
