@@ -1,4 +1,5 @@
 from typing import List
+import os
 import numpy as np
 import math
 from pymatgen import CifParser
@@ -72,6 +73,8 @@ class CrysGraph:
     pass
 
   def normalize_crysgraph(self, method: str = "divide_near_max"):
+    if self.normalized:
+      return
     self.normalized = True
     if method == "divide_near_max":
       for site_idx in range(self.crysgraph.shape[0]):
@@ -124,6 +127,8 @@ class CrysGraph:
           self.crysgraph[12 + adj_idx, 12 + site_idx, 3] /= self.normalize_near_max["dir"]
 
   def unnormalize_crysgraph(self, method: str = "divide_near_max"):
+    if not self.normalized:
+      return
     self.normalized = False
     if method == "divide_near_max":
       for site_idx in range(self.crysgraph.shape[0]):
@@ -227,3 +232,30 @@ class CrysGraph:
         self.crysgraph[12 + adj_idx, 12 + site_idx, 2] = y_diff
         self.crysgraph[12 + site_idx, 12 + adj_idx, 3] = z_diff
         self.crysgraph[12 + adj_idx, 12 + site_idx, 3] = z_diff
+
+  def get_crys_graph(self, normalized):
+    if normalized:
+      self.normalize_crysgraph()
+      return self.crysgraph
+    else:
+      self.unnormalize_crysgraph()
+      return self.crysgraph
+
+
+class CrysTensor:
+  def __init__(self, *args):
+    if len(args) == 0:
+      raise ValueError("Please input a directory of CIF files or a list of CrysGraphs.")
+    self.crys_tensor = []
+    if isinstance(args[0], str):
+      for path in os.listdir(args[0]):
+        cif_path = os.path.join(args[0], path)
+        self.crys_tensor.append(CrysGraph(cif_path))
+    else:
+      self.crys_tensor = args[0]
+  
+  def get_crys_tensor(self, normalized: str = True):
+    crys_tensor_np = np.zeros((len(self.crys_tensor), 64, 64, 4))
+    for idx, crys_graph in enumerate(self.crys_tensor):
+      crys_tensor_np[idx, :, :, :] = crys_graph.get_crys_graph(normalized)
+    return crys_tensor_np
