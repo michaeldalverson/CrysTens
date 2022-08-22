@@ -1,9 +1,3 @@
-from typing import List
-import os
-import numpy as np
-import math
-from pymatgen import CifParser
-
 class CrysGraph:
   def __init__(self, *args):
     if len(args) == 0:
@@ -16,18 +10,19 @@ class CrysGraph:
       self.from_CIF_obj()
     
     self.direction_fix = 0.9999933
-    self.normalize_near_max = {'atom': 82.99999999999999, 
+    self.normalize_near_max = {'atom': 83, 
                         'x': 0.979, 
                         'y': 0.9813, 
                         'z': 0.9782, 
-                        'a': 17.805, 
-                        'b': 20.8119, 
-                        'c': 29.077, 
-                        'alpha': 103.57000000000001, 
-                        'beta': 129.954, 
+                        'a': 19.866, 
+                        'b': 26.43, 
+                        'c': 42.5, 
+                        'alpha': 107.69, 
+                        'beta': 131.30000000000004, 
                         'gamma': 119.99999999999999, 
                         'sg': 227.0, 
-                        'dir': 0.78733}
+                        'dir': 0.89146,
+                        'length': 1.2779113271271993}
 
   def from_file(self, path: str):
     self.normalized = False
@@ -77,7 +72,8 @@ class CrysGraph:
       return
     self.normalized = True
     if method == "divide_near_max":
-      for site_idx in range(self.crysgraph.shape[0]):
+      print(self.crysgraph.shape)
+      for site_idx in range(self.crysgraph.shape[0] - 12):
 
         #Check if an atom is present
         if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
@@ -110,8 +106,8 @@ class CrysGraph:
       for adj_idx in range(len(self.coord_list)):
 
         if site_idx != adj_idx:
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_near_max["length"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_near_max["length"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_near_max["dir"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_near_max["dir"]
 
           self.crysgraph[12 + site_idx, 12 + adj_idx, 1] += self.direction_fix
           self.crysgraph[12 + site_idx, 12 + adj_idx, 1] /= self.normalize_near_max["dir"]
@@ -134,6 +130,7 @@ class CrysGraph:
       for site_idx in range(self.crysgraph.shape[0]):
 
         #Check if an atom is present
+        print(self.crysgraph)
         if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
           self.crysgraph[0, 12 + site_idx, :] *= self.normalize_near_max["atom"]
           self.crysgraph[12 + site_idx, 0, :] *= self.normalize_near_max["atom"]
@@ -164,8 +161,8 @@ class CrysGraph:
       for adj_idx in range(len(self.coord_list)):
 
         if site_idx != adj_idx:
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_near_max["length"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_near_max["length"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_near_max["dir"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_near_max["dir"]
 
           self.crysgraph[12 + site_idx, 12 + adj_idx, 1] *= self.normalize_near_max["dir"]
           self.crysgraph[12 + site_idx, 12 + adj_idx, 1] -= self.direction_fix
@@ -250,6 +247,7 @@ class CrysTensor:
     if isinstance(args[0], str):
       for path in os.listdir(args[0]):
         cif_path = os.path.join(args[0], path)
+        print(cif_path)
         self.crys_tensor.append(CrysGraph(cif_path))
     else:
       self.crys_tensor = args[0]
@@ -257,5 +255,6 @@ class CrysTensor:
   def get_crys_tensor(self, normalized: str = True):
     crys_tensor_np = np.zeros((len(self.crys_tensor), 64, 64, 4))
     for idx, crys_graph in enumerate(self.crys_tensor):
+      print(crys_graph)
       crys_tensor_np[idx, :, :, :] = crys_graph.get_crys_graph(normalized)
     return crys_tensor_np
