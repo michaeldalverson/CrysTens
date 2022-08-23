@@ -72,7 +72,6 @@ class CrysGraph:
       return
     self.normalized = True
     if method == "divide_near_max":
-      print(self.crysgraph.shape)
       for site_idx in range(self.crysgraph.shape[0] - 12):
 
         #Check if an atom is present
@@ -127,10 +126,9 @@ class CrysGraph:
       return
     self.normalized = False
     if method == "divide_near_max":
-      for site_idx in range(self.crysgraph.shape[0]):
+      for site_idx in range(self.crysgraph.shape[0] - 12):
 
         #Check if an atom is present
-        print(self.crysgraph)
         if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
           self.crysgraph[0, 12 + site_idx, :] *= self.normalize_near_max["atom"]
           self.crysgraph[12 + site_idx, 0, :] *= self.normalize_near_max["atom"]
@@ -247,7 +245,6 @@ class CrysTensor:
     if isinstance(args[0], str):
       for path in os.listdir(args[0]):
         cif_path = os.path.join(args[0], path)
-        print(cif_path)
         self.crys_tensor.append(CrysGraph(cif_path))
     else:
       self.crys_tensor = args[0]
@@ -255,6 +252,5 @@ class CrysTensor:
   def get_crys_tensor(self, normalized: str = True):
     crys_tensor_np = np.zeros((len(self.crys_tensor), 64, 64, 4))
     for idx, crys_graph in enumerate(self.crys_tensor):
-      print(crys_graph)
       crys_tensor_np[idx, :, :, :] = crys_graph.get_crys_graph(normalized)
     return crys_tensor_np
