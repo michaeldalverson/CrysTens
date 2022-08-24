@@ -30,6 +30,24 @@ class CrysGraph:
                         'dir': 0.89146,
                         'length': 1.2779113271271993}
 
+    self.normalize_average_std = {'atom': [22.417031299395948, 27.503517675002012, 0.778701530199605, 2.7844790475732646],
+                        'x': [0.2934632568241515, 0.42520262764739036, 0.6901727264665755, 1.661631491833322],
+                        'y': [0.2919067377134818, 0.43638668432502087, 0.6689176095393177, 1.6226127447382617],
+                        'z': [0.29308350406375905, 0.44429446323553035, 0.659660491668988, 1.591076536917126],
+                        'a': [2.7537991622182245, 6.631296113153595, 0.14950307531158527, 6.018461573238658],
+                        'b': [3.30605670472346, 6.887269725378788, 0.22413187899920117, 6.0803402458545905],
+                        'c': [5.797509184209129, 8.88626989936126, 0.4084401245195147, 12.423378095203498],
+                        'alpha': [2.7943744442379326, 89.96235708184788, 0, 1.3028296429486415],
+                        'beta': [8.426823255100807, 92.73923379010695, 0, 1.4017387402522046],
+                        'gamma': [12.722185599629745, 96.46287050653594, 0, 1.1121150950313212],
+                        'sg': [76.31186396273776, 116.00356506238859, 0.6492202538967989, 1.3248570072359955],
+                        'dir': [0.4099350434569409, 0.9999933333333323, 0.4099377763754505, 1.5900622236245516],
+                        'length': [0.26288351681625777, 0.646245505143038, 0.4067858340586399, 2.15365474510736]}
+
+    self.attribute_list = ["atom", "x", "y", "z", "a", "b", "c", "alpha", "beta", "gamma", "sg"]
+
+
+
   def from_file(self, path: str):
     self.normalized = False
     parser = CifParser(path)
@@ -82,50 +100,60 @@ class CrysGraph:
 
         #Check if an atom is present
         if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
-          self.crysgraph[0, 12 + site_idx, :] /= self.normalize_near_max["atom"]
-          self.crysgraph[12 + site_idx, 0, :] /= self.normalize_near_max["atom"]
+          for att_idx, att in enumerate(self.attribute_list):
+            self.crysgraph[att_idx, 12 + site_idx, :] /= self.normalize_near_max[att]
+            self.crysgraph[12 + site_idx, att_idx, :] /= self.normalize_near_max[att]     
 
-          self.crysgraph[1, 12 + site_idx, :] /= self.normalize_near_max["x"]
-          self.crysgraph[12 + site_idx, 1, :] /= self.normalize_near_max["x"]
-          self.crysgraph[2, 12 + site_idx, :] /= self.normalize_near_max["y"]
-          self.crysgraph[12 + site_idx, 2, :] /= self.normalize_near_max["y"]
-          self.crysgraph[3, 12 + site_idx, :] /= self.normalize_near_max["z"]
-          self.crysgraph[12 + site_idx, 3, :] /= self.normalize_near_max["z"]
+      for adj_idx in range(len(self.coord_list)):
+        if site_idx != adj_idx:
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_near_max["length"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_near_max["length"]
 
-          self.crysgraph[4, 12 + site_idx, :] /= self.normalize_near_max["a"]
-          self.crysgraph[12 + site_idx, 4, :] /= self.normalize_near_max["a"]
-          self.crysgraph[5, 12 + site_idx, :] /= self.normalize_near_max["b"]
-          self.crysgraph[12 + site_idx, 5, :] /= self.normalize_near_max["b"]
-          self.crysgraph[6, 12 + site_idx, :] /= self.normalize_near_max["c"]
-          self.crysgraph[12 + site_idx, 6, :] /= self.normalize_near_max["c"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] += self.direction_fix
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_near_max["dir"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] += self.direction_fix
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_near_max["dir"]
 
-          self.crysgraph[7, 12 + site_idx, :] /= self.normalize_near_max["alpha"]
-          self.crysgraph[12 + site_idx, 7, :] /= self.normalize_near_max["alpha"]
-          self.crysgraph[8, 12 + site_idx, :] /= self.normalize_near_max["beta"]
-          self.crysgraph[12 + site_idx, 8, :] /= self.normalize_near_max["beta"]
-          self.crysgraph[9, 12 + site_idx, :] /= self.normalize_near_max["gamma"]
-          self.crysgraph[12 + site_idx, 9, :] /= self.normalize_near_max["gamma"]   
+    elif method == "avg_std":
+      for site_idx in range(self.crysgraph.shape[0] - 12):
 
-          self.crysgraph[12 + site_idx, 10, :] /= self.normalize_near_max["sg"]        
+        #Check if an atom is present
+        if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
+          for att_idx, att in enumerate(self.attribute_list):
+            self.crysgraph[att_idx, 12 + site_idx, :] -= self.normalize_avg_std[att][0]
+            self.crysgraph[att_idx, 12 + site_idx, :] /= self.normalize_avg_std[att][1]
+            self.crysgraph[att_idx, 12 + site_idx, :] += self.normalize_avg_std[att][2]
+            self.crysgraph[att_idx, 12 + site_idx, :] /= self.normalize_avg_std[att][2] + self.normalize_avg_std[att][3]
+            self.crysgraph[12 + site_idx, att_idx, :] -= self.normalize_avg_std[att][0]
+            self.crysgraph[12 + site_idx, att_idx, :] /= self.normalize_avg_std[att][1]
+            self.crysgraph[12 + site_idx, att_idx, :] += self.normalize_avg_std[att][2]
+            self.crysgraph[12 + site_idx, att_idx, :] /= self.normalize_avg_std[att][2] + self.normalize_avg_std[att][3]   
 
       for adj_idx in range(len(self.coord_list)):
 
         if site_idx != adj_idx:
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_near_max["dir"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][0]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][1]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][2]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
 
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 1] += self.direction_fix
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 1] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 1] += self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 1] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 2] += self.direction_fix
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 2] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 2] += self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 2] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 3] += self.direction_fix
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 3] /= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 3] += self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 3] /= self.normalize_near_max["dir"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] -= self.normalize_avg_std["length"][0]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_avg_std["length"][1]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] += self.normalize_avg_std["length"][2]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
+
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] += self.direction_fix
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][0]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][1]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][2]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] += self.direction_fix
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= self.normalize_avg_std["dir"][0]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_avg_std["dir"][1]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] += self.normalize_avg_std["dir"][2]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+
 
   def unnormalize_crysgraph(self, method: str = "divide_near_max"):
     if not self.normalized:
@@ -136,50 +164,59 @@ class CrysGraph:
 
         #Check if an atom is present
         if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
-          self.crysgraph[0, 12 + site_idx, :] *= self.normalize_near_max["atom"]
-          self.crysgraph[12 + site_idx, 0, :] *= self.normalize_near_max["atom"]
-
-          self.crysgraph[1, 12 + site_idx, :] *= self.normalize_near_max["x"]
-          self.crysgraph[12 + site_idx, 1, :] *= self.normalize_near_max["x"]
-          self.crysgraph[2, 12 + site_idx, :] *= self.normalize_near_max["y"]
-          self.crysgraph[12 + site_idx, 2, :] *= self.normalize_near_max["y"]
-          self.crysgraph[3, 12 + site_idx, :] *= self.normalize_near_max["z"]
-          self.crysgraph[12 + site_idx, 3, :] *= self.normalize_near_max["z"]
-
-          self.crysgraph[4, 12 + site_idx, :] *= self.normalize_near_max["a"]
-          self.crysgraph[12 + site_idx, 4, :] *= self.normalize_near_max["a"]
-          self.crysgraph[5, 12 + site_idx, :] *= self.normalize_near_max["b"]
-          self.crysgraph[12 + site_idx, 5, :] *= self.normalize_near_max["b"]
-          self.crysgraph[6, 12 + site_idx, :] *= self.normalize_near_max["c"]
-          self.crysgraph[12 + site_idx, 6, :] *= self.normalize_near_max["c"]
-
-          self.crysgraph[7, 12 + site_idx, :] *= self.normalize_near_max["alpha"]
-          self.crysgraph[12 + site_idx, 7, :] *= self.normalize_near_max["alpha"]
-          self.crysgraph[8, 12 + site_idx, :] *= self.normalize_near_max["beta"]
-          self.crysgraph[12 + site_idx, 8, :] *= self.normalize_near_max["beta"]
-          self.crysgraph[9, 12 + site_idx, :] *= self.normalize_near_max["gamma"]
-          self.crysgraph[12 + site_idx, 9, :] *= self.normalize_near_max["gamma"]   
-
-          self.crysgraph[12 + site_idx, 10, :] *= self.normalize_near_max["sg"]        
+          for att_idx, att in enumerate(self.attribute_list):
+            self.crysgraph[att_idx, 12 + site_idx, :] *= self.normalize_near_max[att]
+            self.crysgraph[12 + site_idx, att_idx, :] *= self.normalize_near_max[att]      
 
       for adj_idx in range(len(self.coord_list)):
-
         if site_idx != adj_idx:
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_near_max["dir"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_near_max["length"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_near_max["length"]
 
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 1] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 1] -= self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 1] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 1] -= self.direction_fix
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 2] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 2] -= self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 2] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 2] -= self.direction_fix
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 3] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + site_idx, 12 + adj_idx, 3] -= self.direction_fix
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 3] *= self.normalize_near_max["dir"]
-          self.crysgraph[12 + adj_idx, 12 + site_idx, 3] -= self.direction_fix
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_near_max["dir"]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= self.direction_fix
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_near_max["dir"]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= self.direction_fix
+
+    elif method == "avg_std":
+      for site_idx in range(self.crysgraph.shape[0] - 12):
+
+        #Check if an atom is present
+        if self.crysgraph[12 + site_idx, 0, 0] != 0.0:
+          for att_idx, att in enumerate(self.attribute_list):
+            self.crysgraph[att_idx, 12 + site_idx, :] *= self.normalize_avg_std[att][2] + self.normalize_avg_std[att][3]
+            self.crysgraph[att_idx, 12 + site_idx, :] -= self.normalize_avg_std[att][2]
+            self.crysgraph[att_idx, 12 + site_idx, :] *= self.normalize_avg_std[att][1]
+            self.crysgraph[att_idx, 12 + site_idx, :] += self.normalize_avg_std[att][0]
+            
+            self.crysgraph[12 + site_idx, att_idx, :] *= self.normalize_avg_std[att][2] + self.normalize_avg_std[att][3]
+            self.crysgraph[12 + site_idx, att_idx, :] -= self.normalize_avg_std[att][2]
+            self.crysgraph[12 + site_idx, att_idx, :] *= self.normalize_avg_std[att][1]
+            self.crysgraph[12 + site_idx, att_idx, :] += self.normalize_avg_std[att][0] 
+
+      for adj_idx in range(len(self.coord_list)):
+        if site_idx != adj_idx:
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][2]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][1]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][0]
+          
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] -= self.normalize_avg_std["length"][2]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_avg_std["length"][1]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 0] += self.normalize_avg_std["length"][0]
+
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][2]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][1]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][0]
+          self.crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= self.direction_fix
+          
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= self.normalize_avg_std["dir"][2]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_avg_std["dir"][1]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] += self.normalize_avg_std["dir"][0]
+          self.crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= self.direction_fix
 
   def construct_crysgraph(self):
     self.crysgraph = np.zeros((64, 64, 4))
