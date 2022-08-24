@@ -271,12 +271,12 @@ class CrysGraph:
         self.crysgraph[12 + site_idx, 12 + adj_idx, 3] = z_diff
         self.crysgraph[12 + adj_idx, 12 + site_idx, 3] = z_diff
 
-  def get_crys_graph(self, normalized):
+  def get_crys_graph(self, normalized, method):
     if normalized:
-      self.normalize_crysgraph()
+      self.normalize_crysgraph(method)
       return self.crysgraph
     else:
-      self.unnormalize_crysgraph()
+      self.unnormalize_crysgraph(method)
       return self.crysgraph
 
 
@@ -292,8 +292,8 @@ class CrysTensor:
     else:
       self.crys_tensor = args[0]
   
-  def get_crys_tensor(self, normalized: str = True):
+  def get_crys_tensor(self, normalized: str = True, method: str = "avg_std"):
     crys_tensor_np = np.zeros((len(self.crys_tensor), 64, 64, 4))
     for idx, crys_graph in enumerate(self.crys_tensor):
-      crys_tensor_np[idx, :, :, :] = crys_graph.get_crys_graph(normalized)
+      crys_tensor_np[idx, :, :, :] = crys_graph.get_crys_graph(normalized, method)
     return crys_tensor_np
