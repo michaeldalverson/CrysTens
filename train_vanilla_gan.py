@@ -11,8 +11,7 @@ from tensorflow.keras.layers import Flatten, LeakyReLU, ReLU, BatchNormalization
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, help="Path to where the dataset is stored.")
-parser.add_argument("--save_path", type=str, 
-                    help="Path to where the models and loss history is stored.")
+parser.add_argument("--save_path", type=str, help="Path to where the models and loss history is stored.")
 
 def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
               filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
@@ -211,7 +210,7 @@ def load_real_samples(data_path: str) -> np.ndarray:
         Tensor of real samples. Shape = (num_samples, 64, 64, 4).
     """
     data_tensor = np.load(data_path)
-    return data_tensor
+    return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
 
 def generate_real_samples(dataset: np.ndarray, n_samples: int
                           ) -> Tuple[np.ndarray, np.ndarray]:

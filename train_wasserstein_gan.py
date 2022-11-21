@@ -36,7 +36,7 @@ def load_real_samples(data_path: str) -> np.ndarray:
         Tensor of real samples. Shape = (num_samples, 64, 64, 4).
     """
     data_tensor = np.load(data_path)
-    return data_tensor
+    return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
 
 def input_shapes(model, prefix):
     shapes = [il.shape[1:] for il in 
@@ -103,7 +103,7 @@ class NoiseGenerator(object):
     def __next__(self, mean=0.0, std=1.0):
 
         def noise(shape):
-            shape = (self.batch_size,) + shape
+            shape = (self.batch_size, shape)
 
             n = self.prng.randn(*shape).astype(np.float32)
             if std != 1.0:
@@ -394,7 +394,7 @@ def main():
     critic = define_critic()
     generator = define_generator(noise_dim)
     gan_model = WGANGP(generator, critic)
-    noise_gen = NoiseGenerator([noise_dim,], batch_size = 64)
+    noise_gen = NoiseGenerator([noise_dim,], batch_size = args.batch_size)
     dataset = load_real_samples(args.data_path)
     gan_model.fit_generator(noise_gen, dataset, noise_dim, args.n_epochs, args.batch_size, args.n_critic, args.model_path)
 

@@ -1,9 +1,12 @@
 import numpy as np
 from typing import List
 from sklearn.cluster import KMeans
+import argparse
+import os
 from pymatgen.io.cif import CifWriter
 from pymatgen.core import Lattice, Structure
 
+#Normalization Constants
 direction_fix = 0.9999933
 normalize_avg_std = {'atom': [22.417031299395948, 27.503517675002012, 0.778701530199605, 2.7844790475732646],
                   'x': [0.2934632568241515, 0.42520262764739036, 0.6901727264665755, 1.661631491833322],
@@ -19,105 +22,151 @@ normalize_avg_std = {'atom': [22.417031299395948, 27.503517675002012, 0.77870153
                   'dir': [0.4099350434569409, 0.9999933333333323, 0.4099377763754505, 1.5900622236245516],
                   'length': [0.26288351681625777, 0.646245505143038, 0.4067858340586399, 2.15365474510736]}
 
+#Crystal parameters as they appear in CrysTens
 attribute_list = ["atom", "x", "y", "z", "a", "b", "c", "alpha", "beta", "gamma", "sg"]
 parameter_list = ["a", "b", "c", "alpha", "beta", "gamma", "sg"]
 
-def unnormalize_crysgraph(crysgraph):
-  for site_idx in range(crysgraph.shape[0] - 12):
+parser = argparse.ArgumentParser()
+parser.add_argument("--crys_tens_path", type=str, help="Path to where the CrysTens is stored.")
+parser.add_argument("--cif_folder", type=str, help="Path to where the generated CIF folder is.")
+parser.add_argument("--stats_folder", type=str, help="Path to where the generated statistics folder is.")
+
+def unnormalize_crys_tens(crys_tens):
+  """Unnormalizes a given CrysTens.
+
+    Args:
+      crys_tens: The normalized (generated) CrysTens.
+
+    Returns:
+      The unnormalized CrysTens.
+    """
+  for site_idx in range(crys_tens.shape[0] - 12):
+
     #Check if an atom is present
-    if crysgraph[12 + site_idx, 0, 0] != 0.0:
+    if np.any(crys_tens[12 + site_idx, :, :]):
       for att_idx, att in enumerate(attribute_list):
-        crysgraph[att_idx, 12 + site_idx, :] *= normalize_avg_std[att][2] + normalize_avg_std[att][3]
-        crysgraph[att_idx, 12 + site_idx, :] -= normalize_avg_std[att][2]
-        crysgraph[att_idx, 12 + site_idx, :] *= normalize_avg_std[att][1]
-        crysgraph[att_idx, 12 + site_idx, :] += normalize_avg_std[att][0]
+        crys_tens[att_idx, 12 + site_idx, :] *= normalize_avg_std[att][2] + normalize_avg_std[att][3]
+        crys_tens[att_idx, 12 + site_idx, :] -= normalize_avg_std[att][2]
+        crys_tens[att_idx, 12 + site_idx, :] *= normalize_avg_std[att][1]
+        crys_tens[att_idx, 12 + site_idx, :] += normalize_avg_std[att][0]
         
-        crysgraph[12 + site_idx, att_idx, :] *= normalize_avg_std[att][2] + normalize_avg_std[att][3]
-        crysgraph[12 + site_idx, att_idx, :] -= normalize_avg_std[att][2]
-        crysgraph[12 + site_idx, att_idx, :] *= normalize_avg_std[att][1]
-        crysgraph[12 + site_idx, att_idx, :] += normalize_avg_std[att][0] 
+        crys_tens[12 + site_idx, att_idx, :] *= normalize_avg_std[att][2] + normalize_avg_std[att][3]
+        crys_tens[12 + site_idx, att_idx, :] -= normalize_avg_std[att][2]
+        crys_tens[12 + site_idx, att_idx, :] *= normalize_avg_std[att][1]
+        crys_tens[12 + site_idx, att_idx, :] += normalize_avg_std[att][0] 
 
-  for adj_idx in range(crysgraph.shape[0] - 12):
-    if site_idx != adj_idx:
-      crysgraph[12 + site_idx, 12 + adj_idx, 0] *= normalize_avg_std["length"][2] + normalize_avg_std["length"][3]
-      crysgraph[12 + site_idx, 12 + adj_idx, 0] -= normalize_avg_std["length"][2]
-      crysgraph[12 + site_idx, 12 + adj_idx, 0] *= normalize_avg_std["length"][1]
-      crysgraph[12 + site_idx, 12 + adj_idx, 0] += normalize_avg_std["length"][0]
-      
-      crysgraph[12 + adj_idx, 12 + site_idx, 0] *= normalize_avg_std["length"][2] + normalize_avg_std["length"][3]
-      crysgraph[12 + adj_idx, 12 + site_idx, 0] -= normalize_avg_std["length"][2]
-      crysgraph[12 + adj_idx, 12 + site_idx, 0] *= normalize_avg_std["length"][1]
-      crysgraph[12 + adj_idx, 12 + site_idx, 0] += normalize_avg_std["length"][0]
+      for adj_idx in range(crys_tens.shape[0] - 12):
+        if site_idx != adj_idx:
+          crys_tens[12 + site_idx, 12 + adj_idx, 0] *= normalize_avg_std["length"][2] + normalize_avg_std["length"][3]
+          crys_tens[12 + site_idx, 12 + adj_idx, 0] -= normalize_avg_std["length"][2]
+          crys_tens[12 + site_idx, 12 + adj_idx, 0] *= normalize_avg_std["length"][1]
+          crys_tens[12 + site_idx, 12 + adj_idx, 0] += normalize_avg_std["length"][0]
+          
+          crys_tens[12 + adj_idx, 12 + site_idx, 0] *= normalize_avg_std["length"][2] + normalize_avg_std["length"][3]
+          crys_tens[12 + adj_idx, 12 + site_idx, 0] -= normalize_avg_std["length"][2]
+          crys_tens[12 + adj_idx, 12 + site_idx, 0] *= normalize_avg_std["length"][1]
+          crys_tens[12 + adj_idx, 12 + site_idx, 0] += normalize_avg_std["length"][0]
 
-      crysgraph[12 + site_idx, 12 + adj_idx, 1:] *= normalize_avg_std["dir"][2] + normalize_avg_std["dir"][3]
-      crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= normalize_avg_std["dir"][2]
-      crysgraph[12 + site_idx, 12 + adj_idx, 1:] *= normalize_avg_std["dir"][1]
-      crysgraph[12 + site_idx, 12 + adj_idx, 1:] += normalize_avg_std["dir"][0]
-      crysgraph[12 + site_idx, 12 + adj_idx, 1:] -= direction_fix
-      
-      crysgraph[12 + adj_idx, 12 + site_idx, 1:] *= normalize_avg_std["dir"][2] + normalize_avg_std["dir"][3]
-      crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= normalize_avg_std["dir"][2]
-      crysgraph[12 + adj_idx, 12 + site_idx, 1:] *= normalize_avg_std["dir"][1]
-      crysgraph[12 + adj_idx, 12 + site_idx, 1:] += normalize_avg_std["dir"][0]
-      crysgraph[12 + adj_idx, 12 + site_idx, 1:] -= direction_fix
-  return crysgraph
+          crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= normalize_avg_std["dir"][2] + normalize_avg_std["dir"][3]
+          crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= normalize_avg_std["dir"][2]
+          crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= normalize_avg_std["dir"][1]
+          crys_tens[12 + site_idx, 12 + adj_idx, 1:] += normalize_avg_std["dir"][0]
+          crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= direction_fix
+          
+          crys_tens[12 + adj_idx, 12 + site_idx, 1:] *= normalize_avg_std["dir"][2] + normalize_avg_std["dir"][3]
+          crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= normalize_avg_std["dir"][2]
+          crys_tens[12 + adj_idx, 12 + site_idx, 1:] *= normalize_avg_std["dir"][1]
+          crys_tens[12 + adj_idx, 12 + site_idx, 1:] += normalize_avg_std["dir"][0]
+          crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= direction_fix
+  return crys_tens
 
-  def get_cif(self, file_path, ref_percent: float = 0.2, rel_coord_percent: float = None, num_coord_clusters: int = None, num_atom_clusters: int = 3, generator: str = "Real CIF", dir_diff_avg: List = None):
+
+def get_cif(crys_tens, file_path, ref_percent: float = 0.2, rel_coord_percent: float = None, num_coord_clusters: int = None, num_atom_clusters: int = 3, generator: str = "Real CIF", dir_diff_avg: List = None, pot_sites = None, top_sites: int = None):
+    """Deconstructs a CrysTens and produces a CIF if possible. Simultaneously collects statistics about CrysTens quality.
+
+    Args:
+      crys_tens: The generated CrysTens that is going to be turned into a CIF
+      file_path: Where the CIF should be stored once it has been generated
+      ref_percent: The tolerance of when a given row/column should not be considered as a new atom
+      rel_coord_percent: How much of the final coordinates should rely on the relative distance matrices
+      num_coord_clusters: How many K-Means groups to group the number of coordinate values
+      num_atom_clusters: How many K-Means groups to group the number of unique elements
+      generator: The name of the generative model that generated crys_tens
+      dir_diff_avg: A dictionary containing the difference between final coordinate positions and relative coordinate positions
+      pot_sites: TODO
+      top_sites: TODO
+
+    Returns:
+      The space group number of the CIF as well as the distance between the generated 
+      pairwise distance matrix and the reconstructed matrix from the final coordinate positions
+    """
+
+    dir_diff_latest = []
     crystal_cif = {}
-    ref_angle = self.crys_graph[12, 7, 0]
+    ref_angle = crys_tens[12, 7, 0]
     ref_avg = ref_angle
-    for num in range(13, self.crys_graph.shape[0]):
-      if abs(self.crys_graph[num, 7, 0] - ref_avg)/ref_avg >= ref_percent:
+
+    #Uses ref_percent to determine when there are no atoms left in CrysTens (column/row[0] = 0)
+    for num in range(13, crys_tens.shape[0]):
+      if abs(crys_tens[num, 7, 0] - ref_avg)/ref_avg >= ref_percent:
         break
       else:
-        ref_angle += self.crys_graph[num, 7, 0]
+        ref_angle += crys_tens[num, 7, 0]
         reference_average = ref_angle / (num - 11)
     
-    constrained_crysgraph = self.crysgraph[:num, :num, :]
-    for i in range(12, constrained_crysgraph.shape[0]):
+    #Averages each value with its reflected value
+    constrained_crys_tens = crys_tens[:num, :num, :]
+    for i in range(12, constrained_crys_tens.shape[0]):
       for j in range(12):
-        avg_val = (np.sum(constrained_crysgraph[i, j, :]) + np.sum(constrained_crysgraph[j, i, :]))/(2 * constrained_crysgraph.shape[2]) 
-        constrained_crysgraph[i, j, :], constrained_crysgraph[j, i, :] = avg_val, avg_val
+        avg_val = (np.sum(constrained_crys_tens[i, j, :]) + np.sum(constrained_crys_tens[j, i, :]))/(2 * constrained_crys_tens.shape[2]) 
+        constrained_crys_tens[i, j, :], constrained_crys_tens[j, i, :] = avg_val, avg_val
 
+    #Finds the average of parameters, angles, and space group number to use as the final value
     for i in range(4, 11):
       sum_val = 0
-      for j in range(12, constrained_crysgraph.shape[0]):
-        sum_val += np.sum(constrained_crysgraph[i, j, :]) + np.sum(constrained_crysgraph[j, i, :])
-      avg_val = sum_val / ((constrained_crysgraph.shape[0] - 12) * constrained_crysgraph.shape[2])
-      constrained_crysgraph[i, 12:, :], constrained_crysgraph[12:, i, :] = avg_val, avg_val
-      crystal_cif[self.parameter_list[i - 4]] = avg_val
+      for j in range(12, constrained_crys_tens.shape[0]):
+        sum_val += np.sum(constrained_crys_tens[i, j, :]) + np.sum(constrained_crys_tens[j, i, :])
+      avg_val = sum_val / (2 * (constrained_crys_tens.shape[0] - 12) * constrained_crys_tens.shape[2])
+      constrained_crys_tens[i, 12:, :], constrained_crys_tens[12:, i, :] = avg_val, avg_val
+      crystal_cif[parameter_list[i - 4]] = avg_val
 
-    for i in range(12, constrained_crysgraph.shape[0]):
-      for j in range(12, constrained_crysgraph.shape[0]):
-        avg_val = (constrained_crysgraph[i, j, 0] + constrained_crysgraph[j, i, 0])/2
-        constrained_crysgraph[i, j, 0], constrained_crysgraph[j, i, 0] = avg_val, avg_val
+    #Makes an attempt to symmetrize the CrysTens
+    for i in range(12, constrained_crys_tens.shape[0]):
+      for j in range(12, constrained_crys_tens.shape[0]):
+        avg_val = (constrained_crys_tens[i, j, 0] + constrained_crys_tens[j, i, 0])/2
+        constrained_crys_tens[i, j, 0], constrained_crys_tens[j, i, 0] = avg_val, avg_val
         for k in range(1, 4):
-          if constrained_crysgraph[i, j, k] > 0:
-            avg_val = (constrained_crysgraph[i, j, k] + abs(constrained_crysgraph[j, i, k]))/2
-            constrained_crysgraph[i, j, k], constrained_crysgraph[j, i, k] = avg_val, -avg_val
+          if constrained_crys_tens[i, j, k] > 0:
+            avg_val = (constrained_crys_tens[i, j, k] + abs(constrained_crys_tens[j, i, k]))/2
+            constrained_crys_tens[i, j, k], constrained_crys_tens[j, i, k] = avg_val, -avg_val
           else:
-            avg_val = (abs(constrained_crysgraph[i, j, k]) + constrained_crysgraph[j, i, k])/2
-            constrained_crysgraph[i, j, k], constrained_crysgraph[j, i, k] = -avg_val, avg_val
+            avg_val = (abs(constrained_crys_tens[i, j, k]) + constrained_crys_tens[j, i, k])/2
+            constrained_crys_tens[i, j, k], constrained_crys_tens[j, i, k] = -avg_val, avg_val
 
+    #Finds the absolute x, y, and z coordinates of each atom as well as the relative coordinates of each atom (according to the distance matrices)
     crystal_cif["site_list"] = {}
-    for i in range(12, constrained_crysgraph.shape[0]):
+    for i in range(12, constrained_crys_tens.shape[0]):
       crystal_cif["site_list"][i - 12] = {}
-      crystal_cif["site_list"][i - 12]["atom"] = constrained_crysgraph[i, 0, 0]
-      crystal_cif["site_list"][i - 12]["x"] = constrained_crysgraph[i, 1, 0]
-      crystal_cif["site_list"][i - 12]["y"] = constrained_crysgraph[i, 2, 0]
-      crystal_cif["site_list"][i - 12]["z"] = constrained_crysgraph[i, 3, 0]
+      crystal_cif["site_list"][i - 12]["atom"] = constrained_crys_tens[i, 0, 0]
+      crystal_cif["site_list"][i - 12]["x"] = constrained_crys_tens[i, 1, 0]
+      crystal_cif["site_list"][i - 12]["y"] = constrained_crys_tens[i, 2, 0]
+      crystal_cif["site_list"][i - 12]["z"] = constrained_crys_tens[i, 3, 0]
 
       crystal_cif["site_list"][i - 12]["adj_list"] = []
-      for j in range(12, constrained_crysgraph.shape[0]):
-        adj_x = crystal_cif["site_list"][i - 12]["x"] - constrained_crysgraph[i, j, 1]
-        adj_y = crystal_cif["site_list"][i - 12]["y"] - constrained_crysgraph[i, j, 2]
-        adj_z = crystal_cif["site_list"][i - 12]["z"] - constrained_crysgraph[i, j, 3]
-        crystal_cif["site_list"][i - 12]["adj_list"].append((adj_x, adj_y, adj_z))
+
+    for i in range(12, constrained_crys_tens.shape[0]):
+      for j in range(12, constrained_crys_tens.shape[0]):
+        adj_x = crystal_cif["site_list"][i - 12]["x"] - constrained_crys_tens[i, j, 1]
+        adj_y = crystal_cif["site_list"][i - 12]["y"] - constrained_crys_tens[i, j, 2]
+        adj_z = crystal_cif["site_list"][i - 12]["z"] - constrained_crys_tens[i, j, 3]
+        crystal_cif["site_list"][j - 12]["adj_list"].append((adj_x, adj_y, adj_z))
 
     site_list = []
     atom_list = []
     if rel_coord_percent is None:
-      rel_coord_percent = 1 - (1/constrained_crysgraph.shape[0])
+      rel_coord_percent = 1 - (1/constrained_crys_tens.shape[0])
+    
+    #Calculates the final coordinate positions and calculates the difference between the final positions and the relative positions
     for site_idx in crystal_cif["site_list"]:
       site = crystal_cif["site_list"][site_idx]
       site_x = site["x"]
@@ -140,10 +189,28 @@ def unnormalize_crysgraph(crysgraph):
       atom_list.append(np.around(site["atom"]))
       site_list.append((x_rel, y_rel, z_rel))
       if dir_diff_avg is not None:
-        dir_diff_avg.append(abs(site_x - x_rel)/adj_x_list)
-        dir_diff_avg.append(abs(site_y - y_rel)/adj_y_list)
-        dir_diff_avg.append(abs(site_z - z_rel)/adj_z_list)
+        dir_diff_latest.append(abs(site_x - x_rel)/len(adj_x_list))
+        dir_diff_latest.append(abs(site_y - y_rel)/len(adj_y_list))
+        dir_diff_latest.append(abs(site_z - z_rel)/len(adj_z_list))
 
+    #Reconstructs a new pairwise distance matrix and compares it to the one generated in CrysTens Layer 1
+    reconstructed_pairwise = np.zeros((constrained_crys_tens.shape[0] - 12, constrained_crys_tens.shape[1] - 12, 1))
+    for site_idx in range(len(site_list)):
+      site = site_list[site_idx]
+      for adj_idx in range(len(site_list)):
+        adj = site_list[adj_idx]
+        x_diff = site[0] - adj[0]
+        y_diff = site[1] - adj[1]
+        z_diff = site[2] - adj[2]
+        length = (x_diff**2 + y_diff**2 + z_diff**2)**(1/2)
+
+        reconstructed_pairwise[site_idx, adj_idx, 0] = length
+        reconstructed_pairwise[adj_idx, site_idx, 0] = length
+    
+    pairwise_error = np.abs(constrained_crys_tens[12:, 12:, 0] - reconstructed_pairwise[:, :, 0])
+
+    #K-Means Clustering for the coordinate values
+    dir_diff_avg.append(dir_diff_latest)
     kmeans_coord_list = []
     for i in range(len(site_list)):
       for j in range(3):
@@ -151,6 +218,8 @@ def unnormalize_crysgraph(crysgraph):
 
     if num_coord_clusters is None:
       num_coord_clusters = len(kmeans_coord_list)
+    
+    num_coord_clusters = min(len(kmeans_coord_list), num_coord_clusters)
 
     kmeans_coord = KMeans(n_clusters = num_coord_clusters).fit(np.array(kmeans_coord_list).reshape(-1, 1))
     for i in range(len(kmeans_coord_list)):
@@ -158,70 +227,141 @@ def unnormalize_crysgraph(crysgraph):
     
     for i in range(0, len(kmeans_coord_list), 3):
       site_list[i//3] = [kmeans_coord_list[i], kmeans_coord_list[i + 1], kmeans_coord_list[i + 2]]
+    
+    
+    #TODO Add PotScoring
 
-    #TODO Finish PotScoring
-
+    #K-Means Clustering for the atom values
+    if num_atom_clusters is None:
+      num_atom_clusters = len(atom_list)
+    
     num_atom_clusters = min(num_atom_clusters, len(atom_list))
     kmeans_atom = KMeans(n_clusters=int(num_atom_clusters)).fit(np.array(atom_list).reshape(-1, 1))
 
     for i in range(len(atom_list)):
       atom_list[i] = np.around(kmeans_atom.cluster_centers_[kmeans_atom.labels_[i]])[0]
 
+    #Remove duplicates
+    trimmed_site_list = []
+    trimmed_atom_list = []
+    dup_check = set()
+    for i in range(len(atom_list)):
+      if (atom_list[i], tuple(site_list[i])) not in dup_check:
+        dup_check.add((atom_list[i], tuple(site_list[i])))
+        trimmed_site_list.append(site_list[i])
+        trimmed_atom_list.append(atom_list[i])
+
+    #Creates the CIF
     lattice = Lattice.from_parameters(a = crystal_cif["a"], b = crystal_cif["b"], c = crystal_cif["c"], alpha = crystal_cif["alpha"], beta = crystal_cif["beta"], gamma = crystal_cif["gamma"])
-    struct = Structure(lattice = lattice, species = atom_list, coords = site_list, to_unit_cell=True)
+    struct = Structure(lattice = lattice, species = trimmed_atom_list, coords = trimmed_site_list, to_unit_cell=True)
     written_cif = str(CifWriter(struct))
     with open(file_path, "w") as file:
       file.write("Generated by: " + generator + "\n" + "Num unique sites: " + str(num_coord_clusters) + "\n" + "Num unique elements: " + str(num_atom_clusters) + "\n\n" + written_cif)
+    
+    return crystal_cif["sg"], np.sum(pairwise_error)/len(site_list)
 
-def get_statistics(crysgraph_path, cif_folder):
-    xyzvar = []
-    paramvar = []
-    anglevar = []
-    sgvar = []
-    dir_diff_avg = []
-    for crys in (np_crys):
+
+def get_statistics(crys_tens_path, cif_folder, stats_folder = None):
+  """Gets all of the pertinent statistics of a group of CrysTens' and creates CIFs from the stacked CrysTens'
+
+    Args:
+      crys_tens_path: Path to a numpy array of CrysTens' of size (#CrysTens', 64, 64, 4)
+      cif_folder: The folder where the generated CIFs are to be stored
+      stats_folder: The folder where the stats file will be generated
+  """
+
+  #Create the statistics lists
+  xyzvar = []
+  paramvar = []
+  anglevar = []
+  sgvar = []
+  dir_diff_avg = []
+  sg_list = []
+  pairwise_avg = []
+
+  np_crys = np.load(crys_tens_path)
+  crys_count = 0
+  for crys in (np_crys):
+    #Make sure CrysTens is of the right shape and unnormalized
     if np_crys.shape != (64, 64, 4):
         new_crys = np.zeros((64, 64, 4))
         for i in range(4):
-        new_crys[:, :, i] = crys[i, :, :]
+          new_crys[:, :, i] = crys[i, :, :]
         crys = new_crys[:]
-    crysgraph = unnormalize_crysgraph(crys)
+    crys_tens = unnormalize_crys_tens(crys)
 
-    get_cif(file_path, 0.2, None, None, 3, "Real CIF", dir_diff_avg)
+    #Get the CIF
+    sg, pairwise_error = get_cif(crys_tens, cif_folder + "CIF" + str(crys_count) + ".cif", 0.2, None, None, 3, "Real CIF", dir_diff_avg)
     try:
-        load_crystal = Structure.from_file(file_path)
+      load_crystal = Structure.from_file(cif_folder + "CIF" + str(crys_count) + ".cif")
+      crys_count += 1
+      sg_list.append(sg)
+      pairwise_avg.append(pairwise_error)
     except:
-        continue
+      #If the CIF was not generated correctly, move on to the next CrysTens, do not collect any statistics
+      continue
 
-    ref_angle = crysgraph[12, 7, 0]
+    #Uses ref_percent to determine when there are no atoms left in CrysTens (column/row[0] = 0)
+    ref_angle = crys_tens[12, 7, 0]
     ref_avg = ref_angle
-    for num in range(13, crysgraph.shape[0]):
-        if abs(crysgraph[num, 7, 0] - ref_avg)/ref_avg >= 0.2:
-        break
+    for num in range(13, crys_tens.shape[0]):
+        if abs(crys_tens[num, 7, 0] - ref_avg)/ref_avg >= 0.2:
+          break
         else:
-        ref_angle += crysgraph[num, 7, 0]
-        reference_average = ref_angle / (num - 11)
-    crysgraph = crysgraph[:num, :num, :]
+          ref_angle += crys_tens[num, 7, 0]
+          reference_average = ref_angle / (num - 11)
+    crys_tens = crys_tens[:num, :num, :]
 
-    for i in range(12, crysgraph.shape[0]):
+    #Gets the variance between reflected coordinates
+    for i in range(12, crys_tens.shape[0]):
         for j in range(1, 3):
-        xyz = []
-        for k in range(4):
-            xyz.append(crysgraph[i, j, k])
-            xyz.append(crysgraph[j, i, k])
-        xyzvar.append(np.var(xyz))
+          xyz = []
+          for k in range(4):
+            xyz.append(crys_tens[i, j, k])
+            xyz.append(crys_tens[j, i, k])
+          xyzvar.append(np.var(xyz))
     
+    #Gets the variance in parameters, angles, and space group numbers
     for i in range(4, 11):
-        row = crysgraph[i, 12:, :]
-        col = crysgraph[12:, i, :]
+        row = crys_tens[i, 12:, :]
+        col = crys_tens[12:, i, :]
         total = []
         for j in range(4):
-        total += row[j, :]
-        total += col[j, :]
+          total += list(row[:, j])
+          total += list(col[:, j])
         if 3 < i < 7:
             paramvar.append(np.var(total))
         elif 7 <= i < 10:
             anglevar.append(np.var(total))
         else:
             sgvar.append(np.var(total))
+  
+  relative_diff_sum = 0
+  relative_diff_count = 0
+  for i in range(len(dir_diff_avg)):
+    relative_diff_sum += sum(dir_diff_avg[i])
+    relative_diff_count += len(dir_diff_avg[i])
+  relative_diff_sum /= relative_diff_count
+
+  stats_name_list = [paramvar, anglevar, sgvar, xyzvar, pairwise_avg]
+  stats_list = []
+  for stat_idx in range(len(stats_name_list)):
+    stats_list.append(np.sum(stats_name_list[stat_idx])/len(stats_name_list[stat_idx]))
+  
+  stats_list.append(relative_diff_sum)
+
+  if stats_folder is not None:
+    np.save(os.path.join(stats_folder, "sg_list.npy"), np.array(sg_list))
+    name_list = ["Lattice Parameter Variance", "Lattice Angle Variance", "Space Group Number Variance", "Fractional Coordinate Variance", "Reconstructed Pairwise Difference", "Relative Coordinate Difference"]
+    with open(os.path.join(stats_folder, "stats"), "w") as f:
+      for stat_idx in range(len(name_list)):
+        f.write(name_list[stat_idx] + ": " + str(stats_list[stat_idx]) + "\n")
+
+
+def main():
+    args = parser.parse_args()
+    get_statistics(args.crys_tens_path, args.cif_folder, args.stats_folder)
+
+if __name__ == "__main__":
+    main()
 
