@@ -6,7 +6,7 @@ from crys_tens import CrysTens
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--crys_dict_path", type=str, help="Path to where a crystal dictionary is (See README).")
-parser.add_argument("--num_examples", type=str, help="The number of crystals to include in the stacked CrysTens.")
+parser.add_argument("--num_examples", type=int, help="The number of crystals to include in the stacked CrysTens.")
 parser.add_argument("--crys_tens_path", type=str, help="Path to where the stacked CrysTens should be stored.")
 
 def generate_stacked_crys_tens(data, num_examples, crys_tens_path):
@@ -54,6 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-with open('/gdrive/My Drive/CGCNN Representation/PCD CIFS/crystal_dict_final.jsonl') as f:
-    data = json.load(f)
