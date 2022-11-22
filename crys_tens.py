@@ -372,11 +372,11 @@ class CrysTens:
 
         #Insert the dimensional differences in the latter three layers (x, y, z)
         self.crys_tens[12 + site_idx, 12 + adj_idx, 1] = x_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 1] = x_diff
+        self.crys_tens[12 + adj_idx, 12 + site_idx, 1] = -x_diff
         self.crys_tens[12 + site_idx, 12 + adj_idx, 2] = y_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 2] = y_diff
+        self.crys_tens[12 + adj_idx, 12 + site_idx, 2] = -y_diff
         self.crys_tens[12 + site_idx, 12 + adj_idx, 3] = z_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 3] = z_diff
+        self.crys_tens[12 + adj_idx, 12 + site_idx, 3] = -z_diff
 
   def get_crys_tens(self, normalized, method):
     if normalized:
