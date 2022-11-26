@@ -15,7 +15,7 @@ class CrysTens:
     else:
       self.from_CIF_obj()
     
-    self.direction_fix = 0.9999933
+    self.direction_fix = 0.99999
     self.normalize_near_max = {'atom': 83, 
                         'x': 0.979, 
                         'y': 0.9813, 
@@ -30,19 +30,22 @@ class CrysTens:
                         'dir': 0.89146,
                         'length': 1.2779113271271993}
 
-    self.normalize_avg_std = {'atom': [22.417031299395948, 27.503517675002012, 0.778701530199605, 2.7844790475732646],
-                        'x': [0.2934632568241515, 0.42520262764739036, 0.6901727264665755, 1.661631491833322],
-                        'y': [0.2919067377134818, 0.43638668432502087, 0.6689176095393177, 1.6226127447382617],
-                        'z': [0.29308350406375905, 0.44429446323553035, 0.659660491668988, 1.591076536917126],
-                        'a': [2.7537991622182245, 6.631296113153595, 0.14950307531158527, 6.018461573238658],
-                        'b': [3.30605670472346, 6.887269725378788, 0.22413187899920117, 6.0803402458545905],
-                        'c': [5.797509184209129, 8.88626989936126, 0.4084401245195147, 12.423378095203498],
-                        'alpha': [2.7943744442379326, 89.96235708184788, 0, 1.3028296429486415],
-                        'beta': [8.426823255100807, 92.73923379010695, 0, 1.4017387402522046],
-                        'gamma': [12.722185599629745, 96.46287050653594, 0, 1.1121150950313212],
-                        'sg': [76.31186396273776, 116.00356506238859, 0.6492202538967989, 1.3248570072359955],
-                        'dir': [0.4099350434569409, 0.9999933333333323, 0.4099377763754505, 1.5900622236245516],
-                        'length': [0.26288351681625777, 0.646245505143038, 0.4067858340586399, 2.15365474510736]}
+    #For each feature, index 0 is the average, index 1 is the standard deviation. To normalize, the mean is subtracted
+    # from each data point and then divided by the standard deviation. Indices 3 and 4 are used to take the new distribution
+    # and normalize each point between 0 and 1
+    self.normalize_avg_std = {'atom': [27.503517675002012, 22.417031299395962, 1.1822938247722463, 3.189382276810422],
+                        'x': [0.4252026276473906, 0.2934632568241515, 1.4489126586030487, 1.9586462438477188],
+                        'y': [0.43638668432502076, 0.291906737713482, 1.4949524212536385, 1.9307764302498376],
+                        'z': [0.4442944632355303, 0.2930835040637591, 1.515931320170363, 1.8960314349305054],
+                        'a': [7.576401996204324, 2.9769371381202365, 1.9530147015047585, 11.78647595694663],
+                        'b': [7.90142069082381, 3.559553637232651, 1.724660257008108, 10.47366695621996],
+                        'c': [9.930851747522944, 6.749988198167417, 1.150054121521355, 15.742864303277916],
+                        'alpha': [89.9627072033887, 3.1373304207017987, 9.624649990367965, 9.574156613663968],
+                        'beta': [93.78688773759445, 9.618284407608558, 3.543759603389515, 4.640756123524075],
+                        'gamma': [95.65975023932918, 12.237549174937287, 3.0022964332249518, 1.9889807520054794],
+                        'sg': [99.50188767306616, 76.65640490497339, 1.284979223786628, 1.7023771528120184],
+                        'dir': [-4.058145803781749e-20, 0.4099350434569409, 2.4393946048146806, 2.4393946048146806],
+                        'length': [0.6693464353927602, 0.236887249528413, 2.73534326062805, 4.159475792980244]}
 
     self.attribute_list = ["atom", "x", "y", "z", "a", "b", "c", "alpha", "beta", "gamma", "sg"]
     self.parameter_list = ["a", "b", "c", "alpha", "beta", "gamma", "sg"]
@@ -108,12 +111,9 @@ class CrysTens:
       for adj_idx in range(len(self.coord_list)):
         if site_idx != adj_idx:
           self.crys_tens[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_near_max["length"]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_near_max["length"]
 
           self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.direction_fix
           self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_near_max["dir"]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] += self.direction_fix
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_near_max["dir"]
 
     elif method == "avg_std":
       for site_idx in range(self.crys_tens.shape[0] - 12):
@@ -130,30 +130,18 @@ class CrysTens:
             self.crys_tens[12 + site_idx, att_idx, :] += self.normalize_avg_std[att][2]
             self.crys_tens[12 + site_idx, att_idx, :] /= self.normalize_avg_std[att][2] + self.normalize_avg_std[att][3]   
 
-      for adj_idx in range(len(self.coord_list)):
+          for adj_idx in range(len(self.coord_list)):
 
-        if site_idx != adj_idx:
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][0]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][1]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][2]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
+            if site_idx != adj_idx:
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][0]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][1]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][2]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] /= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
 
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] -= self.normalize_avg_std["length"][0]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_avg_std["length"][1]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] += self.normalize_avg_std["length"][2]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] /= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
-
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.direction_fix
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][0]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][1]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][2]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
-
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] += self.direction_fix
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= self.normalize_avg_std["dir"][0]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_avg_std["dir"][1]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] += self.normalize_avg_std["dir"][2]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] /= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][0]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][1]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][2]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] /= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
 
   def unnormalize_crys_tens(self, method: str = "divide_near_max"):
     if not self.normalized:
@@ -171,12 +159,9 @@ class CrysTens:
       for adj_idx in range(len(self.coord_list)):
         if site_idx != adj_idx:
           self.crys_tens[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_near_max["length"]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_near_max["length"]
 
           self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_near_max["dir"]
           self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.direction_fix
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_near_max["dir"]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= self.direction_fix
 
     elif method == "avg_std":
       for site_idx in range(self.crys_tens.shape[0] - 12):
@@ -194,29 +179,17 @@ class CrysTens:
             self.crys_tens[12 + site_idx, att_idx, :] *= self.normalize_avg_std[att][1]
             self.crys_tens[12 + site_idx, att_idx, :] += self.normalize_avg_std[att][0] 
 
-      for adj_idx in range(len(self.coord_list)):
-        if site_idx != adj_idx:
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][2]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][1]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][0]
-          
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] -= self.normalize_avg_std["length"][2]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] *= self.normalize_avg_std["length"][1]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 0] += self.normalize_avg_std["length"][0]
+          for adj_idx in range(len(self.coord_list)):
+            if site_idx != adj_idx:
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][2] + self.normalize_avg_std["length"][3]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] -= self.normalize_avg_std["length"][2]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] *= self.normalize_avg_std["length"][1]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 0] += self.normalize_avg_std["length"][0]
 
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][2]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][1]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][0]
-          self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.direction_fix
-          
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= self.normalize_avg_std["dir"][2]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] *= self.normalize_avg_std["dir"][1]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] += self.normalize_avg_std["dir"][0]
-          self.crys_tens[12 + adj_idx, 12 + site_idx, 1:] -= self.direction_fix
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][2] + self.normalize_avg_std["dir"][3]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] -= self.normalize_avg_std["dir"][2]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] *= self.normalize_avg_std["dir"][1]
+              self.crys_tens[12 + site_idx, 12 + adj_idx, 1:] += self.normalize_avg_std["dir"][0]
 
   def get_cif(self, file_path, ref_percent: float = 0.2, rel_coord_percent: float = None, num_coord_clusters: int = None, num_atom_clusters: int = 3, generator: str = "Real CIF"):
     crystal_cif = {}
@@ -368,15 +341,11 @@ class CrysTens:
 
         #Insert adjacency matrix on first layer
         self.crys_tens[12 + site_idx, 12 + adj_idx, 0] = length
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 0] = length
 
         #Insert the dimensional differences in the latter three layers (x, y, z)
         self.crys_tens[12 + site_idx, 12 + adj_idx, 1] = x_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 1] = -x_diff
         self.crys_tens[12 + site_idx, 12 + adj_idx, 2] = y_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 2] = -y_diff
         self.crys_tens[12 + site_idx, 12 + adj_idx, 3] = z_diff
-        self.crys_tens[12 + adj_idx, 12 + site_idx, 3] = -z_diff
 
   def get_crys_tens(self, normalized, method):
     if normalized:
