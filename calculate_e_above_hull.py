@@ -53,7 +53,7 @@ def predict_ehull(dir, model_path, output_path, api_key):
             print("Could not create phase diagram")
             ehull_list.append((file_name, "N/A"))
             continue
-    return ehull_list
+    np.save(output_path, np.array(ehull_list))
 
 def main():
     args = parser.parse_args()
